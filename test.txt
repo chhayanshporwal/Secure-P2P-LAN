@@ -1,3 +1,0 @@
-This is a test file for the secure P2P file transfer application.
-It contains some secret data that needs to be encrypted!
-1234567890
