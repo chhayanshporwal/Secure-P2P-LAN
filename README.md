@@ -109,3 +109,24 @@ You can convert the new Graphical User Interface (`client_gui.py`) into a standa
 4. They can select any file and click **Send Securely**. 
 5. The Load Balancer on your computer will intercept their request, assign them to Port 5001, 5002, or 5003 based on traffic, and seamlessly save the file into your folder! 
 6. (Bonus): You can physically stop one of the `receiver.py` scripts while they are sending a large file, and their GUI will automatically resume it on another port!
+
+---
+
+## 📊 Detailed Guide for Testing and Analysis
+To gather the exact metrics for your research paper, two automated testing scripts have been provided.
+
+### 1. Cryptographic Benchmarking (`analysis_dashboard.py`)
+This script isolates the cryptography (AES-GCM) from the network to measure raw CPU performance.
+*   **How to run:** `python analysis_dashboard.py`
+*   **What it does:** It generates perfectly sized random files (1MB to 50MB), encrypts/decrypts them, and calculates the exact execution time down to the microsecond.
+*   **The Output:** It prints a markdown-ready table of speeds, calculates the exact **Avalanche Effect** percentage, and generates a `performance_graph.png` which you can embed in your paper.
+
+### 2. Network & Fault Tolerance Analysis (`network_analysis.py`)
+This script automates the entire localized LAN topology to measure real-world network performance and resiliency.
+*   **How to run:** `python network_analysis.py`
+*   **What it does:** 
+    *   **Test 1 (Throughput):** Measures exactly how many MB/s the system can transfer over a secure socket.
+    *   **Test 2 (Load Balancer Efficiency):** Fires 3 concurrent uploads at a single server vs. distributed across 3 servers. It calculates the exact **% Performance Improvement** provided by your Load Balancer architecture.
+    *   **Test 3 (Fault Tolerance):** Starts a transfer and programmatically assassines the receiving server mid-way to prove that the system can automatically recover, resume, and prevent data loss.
+
+*Copy the output of both of these scripts directly into the **Experimental Results** section of your research paper!*

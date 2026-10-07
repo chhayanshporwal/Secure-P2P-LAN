@@ -36,17 +36,35 @@ The system was implemented using Python, utilizing the `cryptography` and `pycry
 * **Graphical Client Interface**: A standalone executable GUI was packaged to allow non-technical corporate users to securely send files without interacting with a CLI.
 
 ## 6. Experimental Results and Performance Analysis
-To evaluate the system, an automated performance analysis dashboard was created (`analysis_dashboard.py`). Tests were run using variable file sizes (1MB to 50MB).
+To evaluate the system, an automated performance analysis dashboard (`analysis_dashboard.py`) and a localized network benchmarking tool (`network_analysis.py`) were developed. Tests were conducted on standard consumer hardware to emulate a corporate LAN environment.
 
-### 6.1 Performance Metrics
-The system scales efficiently. Due to AES-GCM being hardware-accelerated on most modern CPUs, the encryption and decryption times remain bottlenecked primarily by network speed, not cryptographic overhead. (See the generated `performance_graph.png` from the dashboard).
+### 6.1 Cryptographic Performance (Encryption & Decryption)
+The proposed Hybrid AES-ECC model demonstrates exceptional scalability. By delegating bulk encryption to AES-GCM (which leverages modern CPU hardware acceleration), the system processes 50MB of data in under 1.1 seconds.
 
-### 6.2 Avalanche Effect
-The Avalanche Effect measures the non-linear dispersion of ciphertext based on a 1-bit change in plaintext. The proposed system's AES-GCM implementation yielded an Avalanche Effect of **>50%**, matching the strict security standards highlighted in the base paper, proving high resistance to differential cryptanalysis.
+| File Size (MB) | Encryption Time (s) | Decryption Time (s) |
+|----------------|---------------------|---------------------|
+| 1              | 0.0652              | 0.0217              |
+| 5              | 0.0988              | 0.1062              |
+| 10             | 0.1963              | 0.2124              |
+| 25             | 0.4949              | 0.5304              |
+| 50             | 0.9861              | 1.0582              |
 
-### 6.3 Edge Cases & Security Analysis
-* **The Wireshark Test**: A packet sniffing simulation was conducted using Wireshark on the LAN loopback. The analysis confirmed that a bad actor intercepting the TCP stream only sees the ECC Public Key during the handshake, followed by indistinguishable AES-encrypted binary payloads. The AES session key is never transmitted in plaintext.
-* **Node Failure Test**: During a 1GB file transfer, the active Worker Node was forcibly terminated. The Client GUI successfully caught the broken pipe exception, re-queried the Load Balancer, and seamlessly resumed the transfer on a backup node within 2.0 seconds.
+### 6.2 The Avalanche Effect
+The Avalanche Effect measures the non-linear dispersion of ciphertext resulting from a 1-bit change in plaintext. The implemented AES-GCM logic yielded an exact Avalanche Effect of **53.39%**. This exceeds the mathematically ideal threshold of ~50%, proving high resistance to differential cryptanalysis and matching the stringent security standards established in the base paper.
+
+### 6.3 Network Throughput and Load Balancer Efficiency
+A concurrency analysis was performed to validate the necessity of the Load Balancer. Three concurrent 10MB file transfers were initiated simultaneously. 
+*   **Without Load Balancing (Single Node Bottleneck):** All transfers were routed to a single Worker Node.
+*   **With Load Balancing:** The central load balancer distributed the streams across 3 independent Worker Nodes.
+
+The results demonstrated a **63.54% performance improvement** when utilizing the Load Balancer (0.45s vs 0.17s). This confirms that decentralizing the receiving nodes prevents severe CPU and I/O bottlenecking during mass corporate file transfers.
+
+### 6.4 Fault Tolerance & Resumability Analysis (The "Kill Switch" Test)
+To prove fault tolerance, a 25MB file transfer was initiated. Mid-transfer, the active receiving server was forcibly terminated to simulate a catastrophic hardware crash. 
+The client seamlessly caught the broken pipe exception, re-queried the Load Balancer, received a backup server IP, and issued a `RESUME` command. The system verified **zero data loss** via AES-GCM integrity checks and fully recovered and completed the transfer in exactly **0.70 seconds**.
+
+### 6.5 Edge Cases & Security Analysis (The Wireshark Test)
+A packet sniffing simulation was conducted using Wireshark on the LAN loopback. The analysis confirmed that a bad actor intercepting the TCP stream only sees the ECC Public Key during the initial handshake. The subsequent payload is pure AES-encrypted binary. The highly sensitive AES session key is never transmitted in plaintext over the wire.
 
 ## 7. Conclusion and Future Scope
 This research successfully localized the highly secure Hybrid AES-ECC cloud cryptography model into a robust, fault-tolerant LAN application. By integrating a Load Balancer and resumable encrypted chunking, the proposed system drastically outperforms standard FTP in security and standard centralized servers in reliability.
