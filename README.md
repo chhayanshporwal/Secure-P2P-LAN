@@ -48,13 +48,6 @@ source venv/bin/activate
 python receiver.py --port 5002
 ```
 
-### Step 3: Simulate Unexpected Load
-Open Terminal 4 and use the simulation script to simulate 10 clients trying to send a file at the same time:
-```bash
-source venv/bin/activate
-python simulate_load.py 127.0.0.1 my_file.pdf --clients 10
-```
-*Watch the Load Balancer perfectly distribute the 10 clients across the two worker nodes!*
 
 ### Step 4: The "Kill Switch" Demo (Proving Fault Tolerance)
 1. Send a very large file (e.g., a 1GB dummy file).
