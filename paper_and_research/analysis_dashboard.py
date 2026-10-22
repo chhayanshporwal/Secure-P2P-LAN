@@ -1,6 +1,14 @@
 import os
+import sys
 import time
 import matplotlib.pyplot as plt
+
+SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
+if os.path.exists(SRC_DIR) and SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
+elif os.path.abspath(".") not in sys.path:
+    sys.path.insert(0, os.path.abspath("."))
+
 from crypto_utils import generate_ecc_key_pair, generate_aes_key, encrypt_chunk, decrypt_chunk
 
 def calculate_avalanche_effect(aes_key):

@@ -1,14 +1,19 @@
 import subprocess
 import time
 import os
+import sys
 import threading
+
+SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
+if not os.path.exists(SRC_DIR):
+    SRC_DIR = os.path.abspath(".")
 
 def generate_file(filename, size_mb):
     with open(filename, 'wb') as f:
         f.write(os.urandom(size_mb * 1024 * 1024))
 
 def run_sender(lb_port, filename):
-    cmd = ["python", "sender.py", "127.0.0.1", filename, "--lb_port", str(lb_port)]
+    cmd = [sys.executable, os.path.join(SRC_DIR, "sender.py"), "127.0.0.1", filename, "--lb_port", str(lb_port)]
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def main():
@@ -23,13 +28,13 @@ def main():
 
     # 2. Start workers
     print("[+] Starting 3 Worker Nodes in the background...")
-    w1 = subprocess.Popen(["python", "receiver.py", "--port", "5001"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    w2 = subprocess.Popen(["python", "receiver.py", "--port", "5002"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    w3 = subprocess.Popen(["python", "receiver.py", "--port", "5003"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    w1 = subprocess.Popen([sys.executable, os.path.join(SRC_DIR, "receiver.py"), "--port", "5001"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    w2 = subprocess.Popen([sys.executable, os.path.join(SRC_DIR, "receiver.py"), "--port", "5002"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    w3 = subprocess.Popen([sys.executable, os.path.join(SRC_DIR, "receiver.py"), "--port", "5003"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
     # 3. Start Load Balancer
     print("[+] Starting Load Balancer...")
-    lb = subprocess.Popen(["python", "load_balancer.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    lb = subprocess.Popen([sys.executable, os.path.join(SRC_DIR, "load_balancer.py")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(2) # Give servers time to bind
 
     # ---------------------------------------------------------

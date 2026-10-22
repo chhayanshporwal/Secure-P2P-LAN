@@ -1,0 +1,62 @@
+name: Build Standalone Executables (Windows & Mac)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build SecureClient.exe
+        run: |
+          pyinstaller --onefile --windowed --noconfirm --paths src --name "SecureClient" main.py
+
+      - name: Upload Windows Executable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SecureClient-Windows
+          path: dist/SecureClient.exe
+
+  build-mac:
+    name: Build macOS App
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build macOS App
+        run: |
+          pyinstaller --onedir --windowed --noconfirm --paths src --name "SecureClient" main.py
+          cd dist && zip -r SecureClient-macOS.zip SecureClient.app
+
+      - name: Upload macOS App Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SecureClient-macOS
+          path: dist/SecureClient-macOS.zip
