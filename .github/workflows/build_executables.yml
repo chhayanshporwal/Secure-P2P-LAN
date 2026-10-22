@@ -1,19 +1,29 @@
-name: Build Standalone Executables (Windows & Mac)
+name: Build & Publish Standalone Releases (Windows & Mac)
 
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release Version Tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
-    name: Build Windows EXE
+    name: Build Windows Executable
     runs-on: windows-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -23,24 +33,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
-      - name: Build SecureClient.exe
+      - name: Build SecureClient.exe via PyInstaller
         run: |
           pyinstaller --onefile --windowed --noconfirm --paths src --name "SecureClient" main.py
+          move dist\SecureClient.exe dist\SecureClient-Windows.exe
 
-      - name: Upload Windows Executable Artifact
+      - name: Upload Windows Binary Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SecureClient-Windows
-          path: dist/SecureClient.exe
+          name: windows-binary
+          path: dist/SecureClient-Windows.exe
+          retention-days: 7
 
   build-mac:
-    name: Build macOS App
+    name: Build macOS Application
     runs-on: macos-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -50,13 +62,77 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
-      - name: Build macOS App
+      - name: Build SecureClient.app via PyInstaller
         run: |
           pyinstaller --onedir --windowed --noconfirm --paths src --name "SecureClient" main.py
           cd dist && zip -r SecureClient-macOS.zip SecureClient.app
 
-      - name: Upload macOS App Artifact
+      - name: Upload macOS Binary Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SecureClient-macOS
+          name: mac-binary
           path: dist/SecureClient-macOS.zip
+          retention-days: 7
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-mac]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download Windows Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-binary
+          path: release-assets
+
+      - name: Download macOS Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-binary
+          path: release-assets
+
+      - name: Determine Release Tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v1.0.0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: SecureClient Standalone Release ${{ steps.vars.outputs.tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          body: |
+            ## 🛡️ Secure P2P LAN Transfer Client (${{ steps.vars.outputs.tag }})
+
+            Zero-friction standalone desktop application for encrypted, atomic LAN file transfer.
+
+            ### 📦 Download Links:
+            - **Windows**: Download [`SecureClient-Windows.exe`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/SecureClient-Windows.exe)
+              *(Single-file standalone executable — double-click to run on any Windows PC, no Python required)*
+            - **macOS**: Download [`SecureClient-macOS.zip`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/SecureClient-macOS.zip)
+              *(Extract and open `SecureClient.app`)*
+
+            ### ✨ Key Features:
+            - **Blackbox Engine**: Auto-starts background Load Balancer (:5000) and multi-node workers on launch.
+            - **Hybrid Cryptography**: ECDH P-256 Key Exchange + AES-256-GCM authenticated encryption.
+            - **Atomicity**: Transfers are all-or-nothing; staged `.part` files are automatically deleted upon interruption or cancellation.
+            - **Native GB Units**: Real-time throughput (`GB/s`) and payload size (`GB`).
+            - **Receive Notifications**: Instant on-screen alerts with 1-click navigation to Full History.
+            - **Transfer History**: Embedded SQLite audit log of all incoming and outgoing transfers.
+          files: |
+            release-assets/SecureClient-Windows.exe
+            release-assets/SecureClient-macOS.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
