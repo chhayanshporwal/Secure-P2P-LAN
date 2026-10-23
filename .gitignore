@@ -6,14 +6,26 @@ venv/
 env/
 .env
 
-# PyInstaller
+# PyInstaller & Build artifacts
 build/
 dist/
 *.spec
 
 # OS
 .DS_Store
+Thumbs.db
 
-# Project generated files
+# IDE & Editor artifacts
+.ruby-lsp/
+.vscode/
+.idea/
+
+# Local Database & User State
+*.db
+config.json
+
+# Project Runtime Generated Files
+received_files/
 received_*
+*.bin
 performance_graph.png

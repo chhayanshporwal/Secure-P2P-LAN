@@ -67,8 +67,9 @@ python main.py
 
 ## 🛡️ Key Features
 
-1. **GB / GB/s Native Units**:
-   - File payload sizes and transfer throughput are formatted with respect to **Gigabytes** (`X.XXX GB`) and **Gigabytes per second** (`X.XXX GB/s`).
+1. **Dynamic Units & Dedicated MBPS Speed**:
+   - File payload sizes dynamically scale across **B**, **KB**, **MB**, and **GB** according to the payload magnitude.
+   - Real-time throughput is strictly displayed in **MBPS** (`MB/s`) for readable, standardized network speed tracking.
 2. **Instant Receive Pop-Up Notification**:
    - Whenever an incoming transfer finishes, an on-screen pop-up alert appears:
      - Shows file name or count of files received from peer(s).
