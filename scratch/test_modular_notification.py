@@ -10,7 +10,7 @@ from service_daemon import daemon_instance
 from sender import send_file_with_resume
 from receiver import add_receive_listener
 from history_manager import HistoryManager
-from client_gui import format_gb, format_gbps
+from client_gui import format_size, format_speed
 
 received_events = []
 
@@ -20,9 +20,9 @@ def test_listener(sender_name, peer_ip, filename, filesize):
         "ip": peer_ip,
         "filename": filename,
         "size": filesize,
-        "size_gb": format_gb(filesize)
+        "size_formatted": format_size(filesize)
     })
-    print(f"[TEST LISTENER] Captured: {sender_name} sent {filename} ({format_gb(filesize)})")
+    print(f"[TEST LISTENER] Captured: {sender_name} sent {filename} ({format_size(filesize)})")
 
 add_receive_listener(test_listener)
 
@@ -45,10 +45,10 @@ try:
     assert ev["sender"] == "TesterBob"
     print(f"Listener verified: {ev}")
 
-    print("4. Validating format_gb and format_gbps...")
-    assert "GB" in format_gb(1024 * 1024 * 1024)
-    assert format_gb(1024 * 1024 * 1024) == "1.000 GB"
-    assert "GB/s" in format_gbps(0.05)
+    print("4. Validating format_size and format_speed...")
+    assert "GB" in format_size(1024 * 1024 * 1024)
+    assert format_size(1024 * 1024 * 1024) == "1.00 GB"
+    assert "MB/s" in format_speed(25.5)
     print("Format tests passed!")
 
     print("5. Validating History records...")

@@ -15,6 +15,21 @@ from service_daemon import daemon_instance
 from history_manager import HistoryManager
 from receiver import add_receive_listener
 
+# -------------------------------------------------------------
+# Standard Desktop Typography & Sizing Constants
+# -------------------------------------------------------------
+FONT_TITLE = ("Helvetica", 15, "bold")
+FONT_SUBTITLE = ("Helvetica", 10)
+FONT_CARD_TITLE = ("Helvetica", 12, "bold")
+FONT_HEADER = ("Helvetica", 13, "bold")
+FONT_LABEL_BOLD = ("Helvetica", 11, "bold")
+FONT_LABEL = ("Helvetica", 11)
+FONT_STAT = ("Helvetica", 16, "bold")
+FONT_BTN = ("Helvetica", 11, "bold")
+FONT_BTN_SM = ("Helvetica", 10, "bold")
+
+
+
 def get_lan_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -26,20 +41,28 @@ def get_lan_ip():
         s.close()
     return ip
 
-def format_gb(num_bytes):
-    gb = num_bytes / (1024 ** 3)
-    if gb >= 0.01:
-        return f"{gb:.3f} GB"
-    elif gb > 0:
-        return f"{gb:.4f} GB"
-    return "0.000 GB"
 
-def format_gbps(gbps):
-    if gbps >= 0.01:
-        return f"{gbps:.3f} GB/s"
-    elif gbps > 0:
-        return f"{gbps:.4f} GB/s"
-    return "0.000 GB/s"
+def format_size(num_bytes):
+    """Dynamically formats byte count to B, KB, MB, or GB."""
+    if num_bytes is None or num_bytes <= 0:
+        return "0 B"
+    num_bytes = float(num_bytes)
+    if num_bytes < 1024:
+        return f"{int(num_bytes)} B"
+    elif num_bytes < 1024 * 1024:
+        return f"{num_bytes / 1024:.1f} KB"
+    elif num_bytes < 1024 * 1024 * 1024:
+        return f"{num_bytes / (1024 * 1024):.2f} MB"
+    else:
+        return f"{num_bytes / (1024 ** 3):.2f} GB"
+
+
+def format_speed(speed_mbps):
+    """Always format transfer speed in MB/s (MBPS)."""
+    if speed_mbps is None or speed_mbps <= 0:
+        return "0.00 MB/s"
+    return f"{speed_mbps:.2f} MB/s"
+
 
 def get_project_root():
     if getattr(sys, 'frozen', False):
@@ -49,12 +72,15 @@ def get_project_root():
         return os.path.dirname(base)
     return base
 
+
 def get_received_files_dir():
     save_dir = os.path.join(get_project_root(), "received_files")
     os.makedirs(save_dir, exist_ok=True)
     return save_dir
 
+
 CONFIG_FILE = os.path.join(get_project_root(), "config.json")
+
 
 def load_user_config():
     if os.path.exists(CONFIG_FILE):
@@ -66,6 +92,7 @@ def load_user_config():
     default_name = getpass.getuser().capitalize() if hasattr(getpass, 'getuser') else "User"
     return {"display_name": default_name, "last_receiver_ip": "192.168.x.x"}
 
+
 def save_user_config(cfg):
     try:
         with open(CONFIG_FILE, "w") as f:
@@ -74,17 +101,127 @@ def save_user_config(cfg):
         pass
 
 
+# -------------------------------------------------------------
+# Cross-Platform High-Contrast Button (Fixes macOS Cocoa issue)
+# -------------------------------------------------------------
+class ModernButton(tk.Label):
+    """
+    A custom label-based button that renders vibrant colors, crisp fonts,
+    and responsive hover states identically on macOS and Windows without
+    Cocoa OS overrides.
+    """
+    def __init__(self, parent, text="", command=None, bg="#059669", fg="#ffffff",
+                 hover_bg=None, font=FONT_BTN, padx=14, pady=8, state=tk.NORMAL, **kwargs):
+        self.command = command
+        self.normal_bg = bg
+        self.hover_bg = hover_bg or self._calc_hover(bg)
+        self.active_bg = self._calc_active(bg)
+        self.normal_fg = fg
+        self._state = state
+        self.disabled_bg = "#cbd5e1"
+        self.disabled_fg = "#64748b"
+
+        current_bg = self.disabled_bg if state == tk.DISABLED else self.normal_bg
+        current_fg = self.disabled_fg if state == tk.DISABLED else self.normal_fg
+        cursor = "hand2" if state == tk.NORMAL else "arrow"
+
+        super().__init__(
+            parent, text=text, bg=current_bg, fg=current_fg,
+            font=font, padx=padx, pady=pady, cursor=cursor,
+            relief=tk.FLAT, bd=0, **kwargs
+        )
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<ButtonPress-1>", self._on_press)
+        self.bind("<ButtonRelease-1>", self._on_release)
+
+    def _calc_hover(self, hex_color):
+        try:
+            h = hex_color.lstrip('#')
+            rgb = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+            darker = tuple(max(0, int(c * 0.88)) for c in rgb)
+            return f"#{darker[0]:02x}{darker[1]:02x}{darker[2]:02x}"
+        except Exception:
+            return hex_color
+
+    def _calc_active(self, hex_color):
+        try:
+            h = hex_color.lstrip('#')
+            rgb = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+            darker = tuple(max(0, int(c * 0.75)) for c in rgb)
+            return f"#{darker[0]:02x}{darker[1]:02x}{darker[2]:02x}"
+        except Exception:
+            return hex_color
+
+    def _on_enter(self, event=None):
+        if self._state == tk.NORMAL:
+            self.configure(bg=self.hover_bg)
+
+    def _on_leave(self, event=None):
+        if self._state == tk.NORMAL:
+            self.configure(bg=self.normal_bg)
+
+    def _on_press(self, event=None):
+        if self._state == tk.NORMAL:
+            self.configure(bg=self.active_bg)
+
+    def _on_release(self, event=None):
+        if self._state == tk.NORMAL:
+            self.configure(bg=self.hover_bg)
+            if self.command:
+                self.command()
+
+    def cget(self, key):
+        if key == "state":
+            return self._state
+        return super().cget(key)
+
+    def __getitem__(self, key):
+        if key == "state":
+            return self._state
+        return super().__getitem__(key)
+
+    def config(self, **kwargs):
+        if "state" in kwargs:
+            self._state = kwargs.pop("state")
+            if self._state == tk.DISABLED:
+                super().config(bg=self.disabled_bg, fg=self.disabled_fg, cursor="arrow")
+            else:
+                super().config(bg=self.normal_bg, fg=self.normal_fg, cursor="hand2")
+        if "text" in kwargs:
+            super().config(text=kwargs.pop("text"))
+        if "bg" in kwargs:
+            self.normal_bg = kwargs.pop("bg")
+            self.hover_bg = self._calc_hover(self.normal_bg)
+            self.active_bg = self._calc_active(self.normal_bg)
+            if self._state == tk.NORMAL:
+                super().config(bg=self.normal_bg)
+        if "fg" in kwargs:
+            self.normal_fg = kwargs.pop("fg")
+            if self._state == tk.NORMAL:
+                super().config(fg=self.normal_fg)
+        if "command" in kwargs:
+            self.command = kwargs.pop("command")
+        if kwargs:
+            super().config(**kwargs)
+
+    configure = config
+
+
+# -------------------------------------------------------------
+# Individual Transfer Sub-Tab
+# -------------------------------------------------------------
 class TransferSubTab(tk.Frame):
     def __init__(self, parent, tab_id, app):
         super().__init__(parent, bg="#f8fafc")
         self.tab_id = tab_id
         self.app = app
-        
+
         self.filepath = None
         self.transfer_start_time = None
         self.last_update_time = 0
         self.last_sent_bytes = 0
-        
+
         self.pause_event = threading.Event()
         self.pause_event.set()
         self.cancel_event = threading.Event()
@@ -93,91 +230,95 @@ class TransferSubTab(tk.Frame):
 
         self.build_tab_ui()
 
+    def update_tab_id(self, new_id):
+        self.tab_id = new_id
+        if hasattr(self, 'file_card'):
+            self.file_card.config(text=f" 📁 File Payload (Transfer #{self.tab_id}) ")
+
     def build_tab_ui(self):
-        container = tk.Frame(self, bg="#f8fafc", padx=16, pady=12)
+        container = tk.Frame(self, bg="#f8fafc", padx=20, pady=16)
         container.pack(fill=tk.BOTH, expand=True)
 
         # 1. Receiver Configuration Card
         srv_card = tk.LabelFrame(
             container,
             text=" 🌐 Receiver Peer Configuration ",
-            font=("Arial", 9, "bold"),
-            fg="#334155",
+            font=FONT_CARD_TITLE,
+            fg="#1e293b",
             bg="#ffffff",
             bd=1,
             relief=tk.SOLID,
-            padx=10,
-            pady=6
+            padx=14,
+            pady=10
         )
-        srv_card.pack(fill=tk.X, pady=(0, 8))
+        srv_card.pack(fill=tk.X, pady=(0, 12))
 
-        tk.Label(srv_card, text="Target Receiver IP:", font=("Arial", 9, "bold"), bg="#ffffff", fg="#475569").pack(side=tk.LEFT)
-        self.ip_entry = tk.Entry(srv_card, font=("Arial", 9), bg="#f8fafc", relief=tk.SOLID, bd=1)
+        tk.Label(srv_card, text="Target Receiver IP:", font=FONT_LABEL_BOLD, bg="#ffffff", fg="#334155").pack(side=tk.LEFT)
+        self.ip_entry = tk.Entry(srv_card, font=FONT_LABEL, bg="#f8fafc", relief=tk.SOLID, bd=1)
         self.ip_entry.insert(0, self.app.config.get("last_receiver_ip", "192.168.x.x"))
-        self.ip_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0), ipady=2)
+        self.ip_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0), ipady=4)
 
         # 2. File Selection Card
-        file_card = tk.LabelFrame(
+        self.file_card = tk.LabelFrame(
             container,
             text=f" 📁 File Payload (Transfer #{self.tab_id}) ",
-            font=("Arial", 9, "bold"),
-            fg="#334155",
+            font=FONT_CARD_TITLE,
+            fg="#1e293b",
             bg="#ffffff",
             bd=1,
             relief=tk.SOLID,
-            padx=10,
-            pady=8
+            padx=14,
+            pady=12
         )
-        file_card.pack(fill=tk.X, pady=(0, 8))
+        self.file_card.pack(fill=tk.X, pady=(0, 12))
 
-        file_top = tk.Frame(file_card, bg="#ffffff")
+        file_top = tk.Frame(self.file_card, bg="#ffffff")
         file_top.pack(fill=tk.X)
 
-        self.browse_btn = tk.Button(
+        self.browse_btn = ModernButton(
             file_top,
             text="Browse File...",
             command=self.browse_file,
-            font=("Arial", 9, "bold"),
-            bg="#e2e8f0",
-            fg="#1e293b",
-            relief=tk.RAISED,
-            padx=8,
-            pady=2,
-            cursor="hand2"
+            font=FONT_BTN_SM,
+            bg="#2563eb",
+            fg="#ffffff",
+            hover_bg="#1d4ed8",
+            padx=14,
+            pady=6
         )
         self.browse_btn.pack(side=tk.LEFT)
 
         self.file_label = tk.Label(
             file_top,
             text="No file selected",
-            font=("Arial", 9, "italic"),
+            font=("Helvetica", 11, "italic"),
             fg="#64748b",
             bg="#ffffff",
             anchor="w"
         )
-        self.file_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 0))
+        self.file_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
 
         # 3. Transfer Monitor Card
         self.mon_card = tk.LabelFrame(
             container,
             text=" 📊 Transfer Monitor ",
-            font=("Arial", 9, "bold"),
-            fg="#334155",
+            font=FONT_CARD_TITLE,
+            fg="#1e293b",
             bg="#ffffff",
             bd=1,
             relief=tk.SOLID,
-            padx=10,
-            pady=8
+            padx=14,
+            pady=12
         )
-        self.mon_card.pack(fill=tk.X, pady=(0, 8))
+        self.mon_card.pack(fill=tk.X, pady=(0, 12))
 
         stats_top = tk.Frame(self.mon_card, bg="#ffffff")
-        stats_top.pack(fill=tk.X, pady=(0, 2))
+        stats_top.pack(fill=tk.X, pady=(0, 4))
 
-        self.pct_label = tk.Label(stats_top, text="0%", font=("Arial", 11, "bold"), fg="#0f172a", bg="#ffffff")
+        self.pct_label = tk.Label(stats_top, text="0%", font=FONT_STAT, fg="#0f172a", bg="#ffffff")
         self.pct_label.pack(side=tk.LEFT)
 
-        self.bytes_label = tk.Label(stats_top, text="0.000 GB / 0.000 GB", font=("Arial", 9), fg="#64748b", bg="#ffffff")
+        self.bytes_label = tk.Label(stats_top, text="0 B / 0 B", font=FONT_LABEL, fg="#475569", bg="#ffffff")
         self.bytes_label.pack(side=tk.RIGHT)
 
         # Progress Bar
@@ -187,94 +328,92 @@ class TransferSubTab(tk.Frame):
             mode="determinate",
             style="Custom.Horizontal.TProgressbar"
         )
-        self.progress_bar.pack(fill=tk.X, pady=3)
+        self.progress_bar.pack(fill=tk.X, pady=6)
 
         stats_bottom = tk.Frame(self.mon_card, bg="#ffffff")
-        stats_bottom.pack(fill=tk.X, pady=(2, 0))
+        stats_bottom.pack(fill=tk.X, pady=(4, 0))
 
-        self.speed_label = tk.Label(stats_bottom, text="⚡ Speed: 0.000 GB/s", font=("Arial", 9), fg="#475569", bg="#ffffff")
+        self.speed_label = tk.Label(stats_bottom, text="⚡ Speed: 0.00 MB/s", font=FONT_LABEL_BOLD, fg="#0369a1", bg="#ffffff")
         self.speed_label.pack(side=tk.LEFT)
 
-        self.eta_label = tk.Label(stats_bottom, text="⏱️ ETA: --", font=("Arial", 9), fg="#475569", bg="#ffffff")
+        self.eta_label = tk.Label(stats_bottom, text="⏱️ ETA: --", font=FONT_LABEL, fg="#475569", bg="#ffffff")
         self.eta_label.pack(side=tk.RIGHT)
 
         # 4. Status Banner
-        self.status_box = tk.Frame(container, bg="#e0f2fe", bd=1, relief=tk.SOLID, padx=8, pady=5)
-        self.status_box.pack(fill=tk.X, pady=(0, 8))
+        self.status_box = tk.Frame(container, bg="#e0f2fe", bd=1, relief=tk.SOLID, padx=12, pady=8)
+        self.status_box.pack(fill=tk.X, pady=(0, 12))
 
         self.status_label = tk.Label(
             self.status_box,
             text="Ready: Enter the Receiver's IP and choose a file to begin.",
-            font=("Arial", 9),
+            font=FONT_LABEL,
             fg="#0369a1",
             bg="#e0f2fe",
-            wraplength=520,
+            wraplength=720,
             justify=tk.LEFT
         )
-        self.status_label.pack(anchor="w")
+        self.status_label.pack(anchor="w", fill=tk.X, expand=True)
+        self.status_box.bind("<Configure>", lambda e: self.status_label.config(wraplength=max(200, e.width - 24)))
+
 
         # 5. Interactive Control Action Buttons Row
         ctrl_frame = tk.Frame(container, bg="#f8fafc")
         ctrl_frame.pack(fill=tk.X, pady=(0, 4))
 
         # Send Button
-        self.send_btn = tk.Button(
+        self.send_btn = ModernButton(
             ctrl_frame,
             text="🔒 Send Securely",
             command=self.start_transfer,
-            font=("Arial", 10, "bold"),
-            bg="#10b981",
-            fg="black",
-            relief=tk.RAISED,
-            pady=6,
-            cursor="hand2"
+            font=FONT_BTN,
+            bg="#059669",
+            fg="#ffffff",
+            hover_bg="#047857",
+            pady=9
         )
-        self.send_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
+        self.send_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
 
         # Pause / Resume Button
-        self.pause_btn = tk.Button(
+        self.pause_btn = ModernButton(
             ctrl_frame,
             text="⏸️ Pause",
             command=self.toggle_pause,
-            font=("Arial", 9, "bold"),
-            bg="#f1f5f9",
-            fg="#1e293b",
-            relief=tk.RAISED,
-            pady=6,
+            font=FONT_BTN,
+            bg="#0284c7",
+            fg="#ffffff",
+            hover_bg="#0369a1",
+            pady=9,
             width=10,
-            state=tk.DISABLED,
-            cursor="hand2"
+            state=tk.DISABLED
         )
         self.pause_btn.pack(side=tk.LEFT, padx=4)
 
         # Cancel Button
-        self.cancel_btn = tk.Button(
+        self.cancel_btn = ModernButton(
             ctrl_frame,
             text="🛑 Cancel",
             command=self.cancel_transfer,
-            font=("Arial", 9, "bold"),
-            bg="#fee2e2",
-            fg="#991b1b",
-            relief=tk.RAISED,
-            pady=6,
+            font=FONT_BTN,
+            bg="#dc2626",
+            fg="#ffffff",
+            hover_bg="#b91c1c",
+            pady=9,
             width=10,
-            state=tk.DISABLED,
-            cursor="hand2"
+            state=tk.DISABLED
         )
-        self.cancel_btn.pack(side=tk.LEFT, padx=(4, 4))
+        self.cancel_btn.pack(side=tk.LEFT, padx=4)
 
         # Close Tab Button
-        self.close_btn = tk.Button(
+        self.close_btn = ModernButton(
             ctrl_frame,
             text="✖ Close Tab",
             command=self.close_tab,
-            font=("Arial", 9),
-            bg="#e2e8f0",
-            fg="#475569",
-            relief=tk.RAISED,
-            pady=6,
-            width=10,
-            cursor="hand2"
+            font=FONT_BTN,
+            bg="#64748b",
+            fg="#ffffff",
+            hover_bg="#475569",
+            pady=9,
+            width=11
         )
         self.close_btn.pack(side=tk.LEFT, padx=(4, 0))
 
@@ -284,14 +423,14 @@ class TransferSubTab(tk.Frame):
         if self.filepath:
             size_bytes = os.path.getsize(self.filepath)
             name = os.path.basename(self.filepath)
-            self.file_label.config(text=f"{name} ({format_gb(size_bytes)})", fg="#0f172a", font=("Arial", 9, "bold"))
+            self.file_label.config(text=f"{name} ({format_size(size_bytes)})", fg="#0f172a", font=FONT_LABEL_BOLD)
             self.reset_progress(size_bytes)
 
     def reset_progress(self, size_bytes=0):
         self.progress_bar['value'] = 0
         self.pct_label.config(text="0%")
-        self.bytes_label.config(text=f"0.000 GB / {format_gb(size_bytes)}")
-        self.speed_label.config(text="⚡ Speed: 0.000 GB/s")
+        self.bytes_label.config(text=f"0 B / {format_size(size_bytes)}")
+        self.speed_label.config(text="⚡ Speed: 0.00 MB/s")
         self.eta_label.config(text="⏱️ ETA: --")
 
     def update_status(self, text):
@@ -325,13 +464,10 @@ class TransferSubTab(tk.Frame):
             return
 
         pct = int((sent / total) * 100) if total > 0 else 0
-        sent_gb = sent / (1024 ** 3)
-        total_gb = total / (1024 ** 3)
-
         elapsed = now - self.transfer_start_time if self.transfer_start_time else 0.001
-        speed_gbps = sent_gb / elapsed if elapsed > 0 else 0
-        remaining_gb = total_gb - sent_gb
-        eta_seconds = (remaining_gb / speed_gbps) if speed_gbps > 0 else 0
+        speed_mbps = (sent / (1024 * 1024)) / elapsed if elapsed > 0 else 0
+        remaining_bytes = total - sent
+        eta_seconds = (remaining_bytes / (speed_mbps * 1024 * 1024)) if speed_mbps > 0 else 0
 
         self.last_update_time = now
         self.last_sent_bytes = sent
@@ -339,8 +475,8 @@ class TransferSubTab(tk.Frame):
         def _apply():
             self.progress_bar['value'] = pct
             self.pct_label.config(text=f"{pct}%")
-            self.bytes_label.config(text=f"{format_gb(sent)} / {format_gb(total)}")
-            self.speed_label.config(text=f"⚡ Speed: {format_gbps(speed_gbps)}")
+            self.bytes_label.config(text=f"{format_size(sent)} / {format_size(total)}")
+            self.speed_label.config(text=f"⚡ Speed: {format_speed(speed_mbps)}")
             self.eta_label.config(text=f"⏱️ ETA: {eta_seconds:.1f}s" if eta_seconds > 0 else "⏱️ ETA: Done")
 
         self.after(0, _apply)
@@ -350,12 +486,12 @@ class TransferSubTab(tk.Frame):
         if not self.is_paused:
             self.pause_event.clear()
             self.is_paused = True
-            self.pause_btn.config(text="▶️ Resume", bg="#dbeafe")
+            self.pause_btn.config(text="▶️ Resume", bg="#0284c7")
             self.update_status("Transfer Paused by user.")
         else:
             self.pause_event.set()
             self.is_paused = False
-            self.pause_btn.config(text="⏸️ Pause", bg="#f1f5f9")
+            self.pause_btn.config(text="⏸️ Pause", bg="#0284c7")
             self.update_status("Transfer Resumed.")
 
     def cancel_transfer(self):
@@ -391,7 +527,7 @@ class TransferSubTab(tk.Frame):
 
         self.send_btn.config(state=tk.DISABLED, text="Encrypting & Sending...")
         self.browse_btn.config(state=tk.DISABLED)
-        self.pause_btn.config(state=tk.NORMAL, text="⏸️ Pause", bg="#f1f5f9")
+        self.pause_btn.config(state=tk.NORMAL, text="⏸️ Pause", bg="#0284c7")
         self.cancel_btn.config(state=tk.NORMAL)
         self.close_btn.config(state=tk.DISABLED)
 
@@ -435,27 +571,29 @@ class TransferSubTab(tk.Frame):
     def reset_controls(self):
         self.send_btn.config(state=tk.NORMAL, text="🔒 Send Securely")
         self.browse_btn.config(state=tk.NORMAL)
-        self.pause_btn.config(state=tk.DISABLED, text="⏸️ Pause", bg="#f1f5f9")
+        self.pause_btn.config(state=tk.DISABLED, text="⏸️ Pause", bg="#0284c7")
         self.cancel_btn.config(state=tk.DISABLED)
         self.close_btn.config(state=tk.NORMAL)
 
 
+# -------------------------------------------------------------
+# Main Application GUI
+# -------------------------------------------------------------
 class SecureClientGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Secure P2P Client (Hybrid AES-ECC + Audit Log)")
-        self.root.geometry("680x620")
-        self.root.minsize(640, 560)
+        self.root.geometry("1000x720")
+        self.root.minsize(840, 600)
         self.root.configure(bg="#f1f5f9")
 
         # Load configuration
         self.config = load_user_config()
         self.my_ip = get_lan_ip()
-        
+
         self.display_name_var = tk.StringVar(value=self.config.get("display_name", "User"))
         self.service_status_var = tk.StringVar(value="Checking...")
 
-        self.tab_counter = 0
         self.send_tabs = []
 
         # Real-time Receive Notification State
@@ -464,11 +602,11 @@ class SecureClientGUI:
         self.popup_timer_id = None
         add_receive_listener(self.on_file_received_event)
 
-        # Configure TTK Styles
+        # Configure TTK Styles for Modern Desktop
         self.style = ttk.Style()
         if "clam" in self.style.theme_names():
             self.style.theme_use("clam")
-            
+
         self.style.configure(
             "Custom.Horizontal.TProgressbar",
             troughcolor="#e2e8f0",
@@ -476,7 +614,41 @@ class SecureClientGUI:
             darkcolor="#059669",
             lightcolor="#34d399",
             bordercolor="#cbd5e1",
-            thickness=16
+            thickness=18
+        )
+
+        self.style.configure(
+            "TNotebook",
+            background="#f1f5f9",
+            borderwidth=0
+        )
+        self.style.configure(
+            "TNotebook.Tab",
+            font=FONT_LABEL_BOLD,
+            padding=(16, 8),
+            background="#e2e8f0",
+            foreground="#334155"
+        )
+        self.style.map(
+            "TNotebook.Tab",
+            background=[("selected", "#ffffff")],
+            foreground=[("selected", "#0f172a")]
+        )
+
+        self.style.configure(
+            "Treeview",
+            font=FONT_LABEL,
+            rowheight=28,
+            background="#ffffff",
+            fieldbackground="#ffffff",
+            foreground="#0f172a"
+        )
+        self.style.configure(
+            "Treeview.Heading",
+            font=FONT_LABEL_BOLD,
+            foreground="#1e293b",
+            background="#e2e8f0",
+            padding=(6, 6)
         )
 
         self.build_main_ui()
@@ -489,12 +661,12 @@ class SecureClientGUI:
 
     def build_main_ui(self):
         # 1. Header Banner (Profile, IP, Service Status)
-        header = tk.Frame(self.root, bg="#0f172a", height=82)
+        header = tk.Frame(self.root, bg="#0f172a", height=88)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
 
         top_row = tk.Frame(header, bg="#0f172a")
-        top_row.pack(fill=tk.X, padx=16, pady=(8, 0))
+        top_row.pack(fill=tk.X, padx=18, pady=(8, 0))
 
         # Title & Security Badge
         title_frame = tk.Frame(top_row, bg="#0f172a")
@@ -503,7 +675,7 @@ class SecureClientGUI:
         title_lbl = tk.Label(
             title_frame,
             text="🛡️ Secure P2P Client",
-            font=("Arial", 13, "bold"),
+            font=FONT_TITLE,
             fg="#f8fafc",
             bg="#0f172a"
         )
@@ -512,7 +684,7 @@ class SecureClientGUI:
         sub_lbl = tk.Label(
             title_frame,
             text="Blackbox P2P Transfer (ECDH P-256 + AES-256-GCM + Atomicity)",
-            font=("Arial", 8),
+            font=FONT_SUBTITLE,
             fg="#94a3b8",
             bg="#0f172a"
         )
@@ -525,56 +697,54 @@ class SecureClientGUI:
         self.srv_lbl = tk.Label(
             srv_status_frame,
             textvariable=self.service_status_var,
-            font=("Arial", 9, "bold"),
+            font=FONT_LABEL_BOLD,
             fg="#4ade80",
             bg="#0f172a"
         )
-        self.srv_lbl.pack(side=tk.LEFT, padx=(0, 8))
+        self.srv_lbl.pack(side=tk.LEFT, padx=(0, 10))
 
-        self.srv_toggle_btn = tk.Button(
+        self.srv_toggle_btn = ModernButton(
             srv_status_frame,
             text="Stop Service",
             command=self.toggle_service,
-            font=("Arial", 8),
+            font=FONT_BTN_SM,
             bg="#334155",
-            fg="black",
-            relief=tk.RAISED,
-            padx=6,
-            pady=2,
-            cursor="hand2"
+            fg="#ffffff",
+            hover_bg="#1e293b",
+            padx=10,
+            pady=4
         )
         self.srv_toggle_btn.pack(side=tk.LEFT)
 
         # Bottom Row of Header: Display Name & My IP
         info_row = tk.Frame(header, bg="#0f172a")
-        info_row.pack(fill=tk.X, padx=16, pady=(4, 6))
+        info_row.pack(fill=tk.X, padx=18, pady=(4, 6))
 
         # Editable Display Name
-        tk.Label(info_row, text="My Display Name:", font=("Arial", 9), fg="#cbd5e1", bg="#0f172a").pack(side=tk.LEFT)
-        self.name_entry = tk.Entry(info_row, textvariable=self.display_name_var, font=("Arial", 9, "bold"), width=16, bg="#1e293b", fg="#ffffff", insertbackground="white", relief=tk.SOLID, bd=1)
-        self.name_entry.pack(side=tk.LEFT, padx=(6, 15))
+        tk.Label(info_row, text="My Display Name:", font=FONT_LABEL, fg="#cbd5e1", bg="#0f172a").pack(side=tk.LEFT)
+        self.name_entry = tk.Entry(info_row, textvariable=self.display_name_var, font=FONT_LABEL_BOLD, width=18, bg="#1e293b", fg="#ffffff", insertbackground="white", relief=tk.SOLID, bd=1)
+        self.name_entry.pack(side=tk.LEFT, padx=(8, 18), ipady=2)
         self.name_entry.bind("<FocusOut>", self.save_name_change)
         self.name_entry.bind("<Return>", self.save_name_change)
 
         # My Local IP & Copy Button
-        tk.Label(info_row, text=f"My LAN IP: {self.my_ip}", font=("Arial", 9, "bold"), fg="#38bdf8", bg="#0f172a").pack(side=tk.LEFT)
-        copy_btn = tk.Button(
+        tk.Label(info_row, text=f"My LAN IP: {self.my_ip}", font=FONT_LABEL_BOLD, fg="#38bdf8", bg="#0f172a").pack(side=tk.LEFT)
+        copy_btn = ModernButton(
             info_row,
             text="📋 Copy IP",
             command=self.copy_ip,
-            font=("Arial", 8),
-            bg="#334155",
-            fg="black",
-            relief=tk.RAISED,
-            padx=6,
-            pady=1,
-            cursor="hand2"
+            font=FONT_BTN_SM,
+            bg="#38bdf8",
+            fg="#0f172a",
+            hover_bg="#7dd3fc",
+            padx=10,
+            pady=3
         )
-        copy_btn.pack(side=tk.LEFT, padx=(6, 0))
+        copy_btn.pack(side=tk.LEFT, padx=(10, 0))
 
         # 2. Main Tabbed Navigation
         self.main_notebook = ttk.Notebook(self.root)
-        self.main_notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=(8, 10))
+        self.main_notebook.pack(fill=tk.BOTH, expand=True, padx=14, pady=(10, 14))
 
         # Main Page 1: Send Files Tab (Contains multi-tab senders)
         self.send_page = tk.Frame(self.main_notebook, bg="#f1f5f9")
@@ -596,43 +766,49 @@ class SecureClientGUI:
     def build_send_page_ui(self):
         # Top toolbar for Send Page
         top_bar = tk.Frame(self.send_page, bg="#f1f5f9")
-        top_bar.pack(fill=tk.X, padx=8, pady=(6, 4))
+        top_bar.pack(fill=tk.X, padx=12, pady=(10, 6))
 
         tk.Label(
             top_bar,
             text="Active File Transfers:",
-            font=("Arial", 10, "bold"),
-            fg="#334155",
+            font=FONT_HEADER,
+            fg="#1e293b",
             bg="#f1f5f9"
         ).pack(side=tk.LEFT)
 
-        add_tab_btn = tk.Button(
+        add_tab_btn = ModernButton(
             top_bar,
             text="➕ New Transfer Tab",
             command=self.add_send_tab,
-            font=("Arial", 9, "bold"),
-            bg="#38bdf8",
-            fg="black",
-            relief=tk.RAISED,
-            padx=10,
-            pady=3,
-            cursor="hand2"
+            font=FONT_BTN,
+            bg="#0284c7",
+            fg="#ffffff",
+            hover_bg="#0369a1",
+            padx=14,
+            pady=6
         )
         add_tab_btn.pack(side=tk.RIGHT)
 
         # Sub-notebook for multiple concurrent sending tabs
         self.sub_notebook = ttk.Notebook(self.send_page)
-        self.sub_notebook.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        self.sub_notebook.pack(fill=tk.BOTH, expand=True, padx=8, pady=6)
 
         # Initial Send Tab
         self.add_send_tab()
 
+    def reindex_tabs(self):
+        """Ensures tab labels and card titles are strictly sequential and relative (1..N)."""
+        for index, tab in enumerate(self.send_tabs, start=1):
+            tab.update_tab_id(index)
+            self.sub_notebook.tab(tab, text=f"  Transfer #{index}  ")
+
     def add_send_tab(self):
-        self.tab_counter += 1
-        tab_frame = TransferSubTab(self.sub_notebook, self.tab_counter, self)
-        self.sub_notebook.add(tab_frame, text=f"  Transfer #{self.tab_counter}  ")
-        self.sub_notebook.select(tab_frame)
+        next_id = len(self.send_tabs) + 1
+        tab_frame = TransferSubTab(self.sub_notebook, next_id, self)
+        self.sub_notebook.add(tab_frame, text=f"  Transfer #{next_id}  ")
         self.send_tabs.append(tab_frame)
+        self.reindex_tabs()
+        self.sub_notebook.select(tab_frame)
 
     def remove_send_tab(self, tab_frame):
         if len(self.send_tabs) <= 1:
@@ -640,19 +816,20 @@ class SecureClientGUI:
             return
         self.sub_notebook.forget(tab_frame)
         self.send_tabs.remove(tab_frame)
+        self.reindex_tabs()
 
     def build_history_page_ui(self):
-        h_container = tk.Frame(self.history_page, bg="#f1f5f9", padx=12, pady=10)
+        h_container = tk.Frame(self.history_page, bg="#f1f5f9", padx=16, pady=14)
         h_container.pack(fill=tk.BOTH, expand=True)
 
         # Top Bar with Title and Actions
         h_top = tk.Frame(h_container, bg="#f1f5f9")
-        h_top.pack(fill=tk.X, pady=(0, 8))
+        h_top.pack(fill=tk.X, pady=(0, 10))
 
         tk.Label(
             h_top,
             text="Audit Trail & Transfer Log:",
-            font=("Arial", 11, "bold"),
+            font=FONT_HEADER,
             fg="#1e293b",
             bg="#f1f5f9"
         ).pack(side=tk.LEFT)
@@ -660,46 +837,46 @@ class SecureClientGUI:
         btn_frame = tk.Frame(h_top, bg="#f1f5f9")
         btn_frame.pack(side=tk.RIGHT)
 
-        open_folder_btn = tk.Button(
+        open_folder_btn = ModernButton(
             btn_frame,
             text="📂 Open Received Folder",
             command=self.open_received_folder,
-            font=("Arial", 9, "bold"),
-            bg="#e2e8f0",
-            fg="#1e293b",
-            padx=8,
-            pady=3,
-            cursor="hand2"
+            font=FONT_BTN_SM,
+            bg="#0284c7",
+            fg="#ffffff",
+            hover_bg="#0369a1",
+            padx=12,
+            pady=5
         )
         open_folder_btn.pack(side=tk.LEFT, padx=4)
 
-        refresh_btn = tk.Button(
+        refresh_btn = ModernButton(
             btn_frame,
             text="🔄 Refresh",
             command=self.refresh_history,
-            font=("Arial", 9),
-            bg="#e2e8f0",
-            fg="#1e293b",
-            padx=8,
-            pady=3,
-            cursor="hand2"
+            font=FONT_BTN_SM,
+            bg="#475569",
+            fg="#ffffff",
+            hover_bg="#334155",
+            padx=10,
+            pady=5
         )
         refresh_btn.pack(side=tk.LEFT, padx=4)
 
-        clear_btn = tk.Button(
+        clear_btn = ModernButton(
             btn_frame,
             text="🗑️ Clear",
             command=self.clear_history_log,
-            font=("Arial", 9),
-            bg="#fee2e2",
-            fg="#991b1b",
-            padx=8,
-            pady=3,
-            cursor="hand2"
+            font=FONT_BTN_SM,
+            bg="#dc2626",
+            fg="#ffffff",
+            hover_bg="#b91c1c",
+            padx=10,
+            pady=5
         )
         clear_btn.pack(side=tk.LEFT, padx=(4, 0))
 
-        # Treeview Table
+        # Responsive Treeview Table
         table_frame = tk.Frame(h_container, bg="#ffffff", bd=1, relief=tk.SOLID)
         table_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -710,21 +887,22 @@ class SecureClientGUI:
         self.tree.heading("direction", text="Direction")
         self.tree.heading("peer", text="Peer (Name / IP)")
         self.tree.heading("file", text="Filename")
-        self.tree.heading("size", text="Size (GB)")
+        self.tree.heading("size", text="Size")
         self.tree.heading("timestamp", text="Date & Time")
         self.tree.heading("duration", text="Time Taken")
-        self.tree.heading("speed", text="Throughput (GB/s)")
+        self.tree.heading("speed", text="Throughput (MB/s)")
         self.tree.heading("status", text="Status")
 
-        self.tree.column("id", width=35, anchor="center")
-        self.tree.column("direction", width=85, anchor="center")
-        self.tree.column("peer", width=140, anchor="w")
-        self.tree.column("file", width=130, anchor="w")
-        self.tree.column("size", width=85, anchor="e")
-        self.tree.column("timestamp", width=130, anchor="center")
-        self.tree.column("duration", width=75, anchor="center")
-        self.tree.column("speed", width=110, anchor="e")
-        self.tree.column("status", width=95, anchor="center")
+        # Responsive column widths with stretch=True on main text columns
+        self.tree.column("id", width=40, minwidth=35, anchor="center", stretch=False)
+        self.tree.column("direction", width=95, minwidth=80, anchor="center", stretch=False)
+        self.tree.column("peer", width=160, minwidth=120, anchor="w", stretch=True)
+        self.tree.column("file", width=200, minwidth=140, anchor="w", stretch=True)
+        self.tree.column("size", width=100, minwidth=80, anchor="e", stretch=False)
+        self.tree.column("timestamp", width=155, minwidth=130, anchor="center", stretch=False)
+        self.tree.column("duration", width=90, minwidth=75, anchor="center", stretch=False)
+        self.tree.column("speed", width=120, minwidth=95, anchor="e", stretch=False)
+        self.tree.column("status", width=110, minwidth=90, anchor="center", stretch=False)
 
         # Scrollbars
         vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
@@ -750,9 +928,8 @@ class SecureClientGUI:
         for r in records:
             dir_badge = "📤 SENT" if r["direction"] == "SENT" else "📥 RECV"
             peer_str = f"{r['peer_name']} ({r['peer_ip']})"
-            size_str = format_gb(r['filesize'])
-            speed_gbps = (r['speed_mbps'] / 1024.0) if r['speed_mbps'] > 0 else 0.0
-            speed_str = format_gbps(speed_gbps) if speed_gbps > 0 else "--"
+            size_str = format_size(r['filesize'])
+            speed_str = format_speed(r['speed_mbps']) if r['speed_mbps'] > 0 else "--"
             dur_str = f"{r['duration_sec']:.2f}s" if r['duration_sec'] > 0 else "--"
 
             self.tree.insert("", "end", values=(
@@ -851,13 +1028,13 @@ class SecureClientGUI:
         if count == 1:
             item = self.pending_notifications[0]
             title_text = "📥 New File Received!"
-            body_headline = f"'{item['filename']}' ({format_gb(item['filesize'])})"
+            body_headline = f"'{item['filename']}' ({format_size(item['filesize'])})"
             sub_headline = f"From: {item['sender_name']} ({item['peer_ip']})"
         else:
             title_text = f"📥 {count} Files Received!"
             body_headline = f"{count} files received from {senders_str}"
             latest = self.pending_notifications[-1]
-            sub_headline = f"Latest: '{latest['filename']}' ({format_gb(latest['filesize'])})"
+            sub_headline = f"Latest: '{latest['filename']}' ({format_size(latest['filesize'])})"
 
         popup = tk.Toplevel(self.root)
         self.active_popup = popup
@@ -865,11 +1042,11 @@ class SecureClientGUI:
         popup.overrideredirect(True)
         popup.attributes("-topmost", True)
 
-        popup_w, popup_h = 390, 140
+        popup_w, popup_h = 420, 150
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
-        x = max(10, screen_w - popup_w - 25)
-        y = max(10, screen_h - popup_h - 45)
+        x = max(10, screen_w - popup_w - 30)
+        y = max(10, screen_h - popup_h - 50)
         popup.geometry(f"{popup_w}x{popup_h}+{x}+{y}")
 
         # Modern Card Container with Accent Border
@@ -878,68 +1055,65 @@ class SecureClientGUI:
 
         # Header Row
         header_f = tk.Frame(card, bg="#0f172a")
-        header_f.pack(fill=tk.X, padx=12, pady=(8, 2))
+        header_f.pack(fill=tk.X, padx=14, pady=(10, 4))
 
-        title_lbl = tk.Label(header_f, text=title_text, font=("Arial", 10, "bold"), fg="#10b981", bg="#0f172a", cursor="hand2")
+        title_lbl = tk.Label(header_f, text=title_text, font=FONT_LABEL_BOLD, fg="#10b981", bg="#0f172a", cursor="hand2")
         title_lbl.pack(side=tk.LEFT)
         title_lbl.bind("<Button-1>", lambda e: self.navigate_to_history_from_popup())
 
-        close_btn = tk.Button(
+        close_btn = ModernButton(
             header_f,
             text="✖",
             command=self.close_notification_popup,
-            font=("Arial", 9, "bold"),
+            font=FONT_BTN_SM,
             bg="#0f172a",
             fg="#94a3b8",
-            activeforeground="#f8fafc",
-            activebackground="#0f172a",
-            bd=0,
-            cursor="hand2"
+            hover_bg="#1e293b",
+            padx=8,
+            pady=2
         )
         close_btn.pack(side=tk.RIGHT)
 
         # Middle Content Row (Clickable)
         content_f = tk.Frame(card, bg="#0f172a", cursor="hand2")
-        content_f.pack(fill=tk.X, padx=12, pady=(2, 6))
+        content_f.pack(fill=tk.X, padx=14, pady=(2, 8))
         content_f.bind("<Button-1>", lambda e: self.navigate_to_history_from_popup())
 
-        body_lbl = tk.Label(content_f, text=body_headline, font=("Arial", 9, "bold"), fg="#f8fafc", bg="#0f172a", anchor="w", wraplength=360, justify=tk.LEFT)
+        body_lbl = tk.Label(content_f, text=body_headline, font=FONT_LABEL_BOLD, fg="#f8fafc", bg="#0f172a", anchor="w", wraplength=380, justify=tk.LEFT)
         body_lbl.pack(fill=tk.X)
         body_lbl.bind("<Button-1>", lambda e: self.navigate_to_history_from_popup())
 
-        sub_lbl = tk.Label(content_f, text=sub_headline, font=("Arial", 8), fg="#94a3b8", bg="#0f172a", anchor="w", wraplength=360, justify=tk.LEFT)
+        sub_lbl = tk.Label(content_f, text=sub_headline, font=FONT_SUBTITLE, fg="#94a3b8", bg="#0f172a", anchor="w", wraplength=380, justify=tk.LEFT)
         sub_lbl.pack(fill=tk.X, pady=(2, 0))
         sub_lbl.bind("<Button-1>", lambda e: self.navigate_to_history_from_popup())
 
         # Action Buttons Row
         actions_f = tk.Frame(card, bg="#0f172a")
-        actions_f.pack(fill=tk.X, padx=12, pady=(4, 8))
+        actions_f.pack(fill=tk.X, padx=14, pady=(4, 10))
 
-        history_btn = tk.Button(
+        history_btn = ModernButton(
             actions_f,
             text="📜 View Full History",
             command=self.navigate_to_history_from_popup,
-            font=("Arial", 9, "bold"),
+            font=FONT_BTN_SM,
             bg="#10b981",
-            fg="black",
-            relief=tk.RAISED,
-            padx=10,
-            pady=3,
-            cursor="hand2"
+            fg="#ffffff",
+            hover_bg="#059669",
+            padx=12,
+            pady=5
         )
-        history_btn.pack(side=tk.LEFT, padx=(0, 6))
+        history_btn.pack(side=tk.LEFT, padx=(0, 8))
 
-        folder_btn = tk.Button(
+        folder_btn = ModernButton(
             actions_f,
             text="📂 Open Folder",
             command=self.open_received_folder,
-            font=("Arial", 9),
+            font=FONT_BTN_SM,
             bg="#334155",
-            fg="black",
-            relief=tk.RAISED,
-            padx=8,
-            pady=3,
-            cursor="hand2"
+            fg="#ffffff",
+            hover_bg="#1e293b",
+            padx=10,
+            pady=5
         )
         folder_btn.pack(side=tk.LEFT)
 

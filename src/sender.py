@@ -25,6 +25,19 @@ def receive_all(sock, num_bytes):
         data += packet
     return data
 
+def format_size(num_bytes):
+    if num_bytes is None or num_bytes <= 0:
+        return "0 B"
+    num_bytes = float(num_bytes)
+    if num_bytes < 1024:
+        return f"{int(num_bytes)} B"
+    elif num_bytes < 1024 * 1024:
+        return f"{num_bytes / 1024:.1f} KB"
+    elif num_bytes < 1024 * 1024 * 1024:
+        return f"{num_bytes / (1024 * 1024):.2f} MB"
+    else:
+        return f"{num_bytes / (1024 ** 3):.2f} GB"
+
 def calculate_file_hash(filepath):
     hasher = hashlib.sha256()
     with open(filepath, 'rb') as f:
@@ -219,7 +232,9 @@ def send_file_with_resume(lb_ip, lb_port, filepath, status_cb=None, progress_cb=
                     sent_bytes += len(chunk)
                     if progress_cb:
                         progress_cb(sent_bytes, filesize)
-                    print(f"\rProgress: {sent_bytes / (1024**3):.3f} / {filesize / (1024**3):.3f} GB", end="")
+                    now_t = time.time()
+                    cur_speed = (sent_bytes / (1024 * 1024)) / max(0.001, now_t - t0)
+                    print(f"\rProgress: {format_size(sent_bytes)} / {format_size(filesize)} | Speed: {cur_speed:.2f} MB/s", end="")
                     
             print()
             logging.info("Transfer complete!")
