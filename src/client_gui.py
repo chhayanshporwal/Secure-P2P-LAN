@@ -18,16 +18,45 @@ from receiver import add_receive_listener
 # -------------------------------------------------------------
 # Standard Desktop Typography & Sizing Constants
 # -------------------------------------------------------------
-FONT_TITLE = ("Helvetica", 15, "bold")
-FONT_SUBTITLE = ("Helvetica", 10)
-FONT_CARD_TITLE = ("Helvetica", 12, "bold")
-FONT_HEADER = ("Helvetica", 13, "bold")
-FONT_LABEL_BOLD = ("Helvetica", 11, "bold")
-FONT_LABEL = ("Helvetica", 11)
-FONT_STAT = ("Helvetica", 16, "bold")
-FONT_BTN = ("Helvetica", 11, "bold")
-FONT_BTN_SM = ("Helvetica", 10, "bold")
+# Platform-Specific Sleek Typography & Layout Metrics
+# (Compact & sleek on Windows; standard & readable on macOS)
+# -------------------------------------------------------------
+IS_MAC = sys.platform == "darwin"
 
+if IS_MAC:
+    FONT_TITLE = ("Helvetica", 14, "bold")
+    FONT_SUBTITLE = ("Helvetica", 10)
+    FONT_CARD_TITLE = ("Helvetica", 11, "bold")
+    FONT_HEADER = ("Helvetica", 11, "bold")
+    FONT_LABEL_BOLD = ("Helvetica", 10, "bold")
+    FONT_LABEL = ("Helvetica", 10)
+    FONT_STAT = ("Helvetica", 13, "bold")
+    FONT_BTN = ("Helvetica", 10, "bold")
+    FONT_BTN_SM = ("Helvetica", 9, "bold")
+    FONT_MONO = ("Menlo", 9)
+    TREE_ROW_HEIGHT = 26
+    WIN_GEOMETRY = "720x640"
+    WIN_MINSIZE = (660, 520)
+    BTN_PADX = 12
+    BTN_PADY = 5
+    BTN_BD = 2
+else:
+    FONT_TITLE = ("Segoe UI", 11, "bold")
+    FONT_SUBTITLE = ("Segoe UI", 8)
+    FONT_CARD_TITLE = ("Segoe UI", 9, "bold")
+    FONT_HEADER = ("Segoe UI", 9, "bold")
+    FONT_LABEL_BOLD = ("Segoe UI", 9, "bold")
+    FONT_LABEL = ("Segoe UI", 9)
+    FONT_STAT = ("Segoe UI", 11, "bold")
+    FONT_BTN = ("Segoe UI", 9, "bold")
+    FONT_BTN_SM = ("Segoe UI", 8, "bold")
+    FONT_MONO = ("Consolas", 8)
+    TREE_ROW_HEIGHT = 22
+    WIN_GEOMETRY = "680x600"
+    WIN_MINSIZE = (620, 480)
+    BTN_PADX = 10
+    BTN_PADY = 4
+    BTN_BD = 2
 
 
 def get_lan_ip():
@@ -62,6 +91,43 @@ def format_speed(speed_mbps):
     if speed_mbps is None or speed_mbps <= 0:
         return "0.00 MB/s"
     return f"{speed_mbps:.2f} MB/s"
+
+
+def format_duration(seconds):
+    """
+    Dynamically formats seconds into human-readable e.g.
+    '3min 4sec', '18sec', '1hr 5min 12sec', or '0.5s'.
+    """
+    if seconds is None or seconds < 0:
+        return "--"
+    seconds = float(seconds)
+    if seconds < 1.0:
+        return f"{seconds:.2f}s" if seconds > 0 else "0s"
+
+    total_sec = int(round(seconds))
+    if total_sec < 60:
+        return f"{total_sec}sec"
+
+    minutes, sec = divmod(total_sec, 60)
+    if minutes < 60:
+        if sec > 0:
+            return f"{minutes}min {sec}sec"
+        return f"{minutes}min"
+
+    hours, minutes = divmod(minutes, 60)
+    parts = [f"{hours}hr"]
+    if minutes > 0:
+        parts.append(f"{minutes}min")
+    if sec > 0:
+        parts.append(f"{sec}sec")
+    return " ".join(parts)
+
+
+def format_eta(seconds):
+    """Dynamically formats ETA seconds into e.g. '3min 4sec', '12sec', 'Done'."""
+    if seconds is None or seconds <= 0:
+        return "Done"
+    return format_duration(seconds)
 
 
 def get_project_root():
@@ -102,33 +168,40 @@ def save_user_config(cfg):
 
 
 # -------------------------------------------------------------
-# Cross-Platform High-Contrast Button (Fixes macOS Cocoa issue)
+# Cross-Platform High-Contrast Button with Defined Boundaries
 # -------------------------------------------------------------
 class ModernButton(tk.Label):
     """
     A custom label-based button that renders vibrant colors, crisp fonts,
-    and responsive hover states identically on macOS and Windows without
-    Cocoa OS overrides.
+    clearly visible 3D boundaries, and responsive tactile press states.
     """
     def __init__(self, parent, text="", command=None, bg="#059669", fg="#ffffff",
-                 hover_bg=None, font=FONT_BTN, padx=14, pady=8, state=tk.NORMAL, **kwargs):
+                 hover_bg=None, font=None, padx=None, pady=None, state=tk.NORMAL,
+                 relief=tk.RAISED, bd=None, **kwargs):
         self.command = command
         self.normal_bg = bg
         self.hover_bg = hover_bg or self._calc_hover(bg)
         self.active_bg = self._calc_active(bg)
         self.normal_fg = fg
         self._state = state
-        self.disabled_bg = "#cbd5e1"
-        self.disabled_fg = "#64748b"
+        self.normal_relief = relief
+        self.normal_bd = bd if bd is not None else BTN_BD
+        self.disabled_bg = "#e2e8f0"
+        self.disabled_fg = "#94a3b8"
 
         current_bg = self.disabled_bg if state == tk.DISABLED else self.normal_bg
         current_fg = self.disabled_fg if state == tk.DISABLED else self.normal_fg
+        current_relief = tk.GROOVE if state == tk.DISABLED else self.normal_relief
         cursor = "hand2" if state == tk.NORMAL else "arrow"
+
+        btn_font = font if font is not None else FONT_BTN
+        btn_padx = padx if padx is not None else BTN_PADX
+        btn_pady = pady if pady is not None else BTN_PADY
 
         super().__init__(
             parent, text=text, bg=current_bg, fg=current_fg,
-            font=font, padx=padx, pady=pady, cursor=cursor,
-            relief=tk.FLAT, bd=0, **kwargs
+            font=btn_font, padx=btn_padx, pady=btn_pady, cursor=cursor,
+            relief=current_relief, bd=self.normal_bd, **kwargs
         )
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
@@ -139,7 +212,7 @@ class ModernButton(tk.Label):
         try:
             h = hex_color.lstrip('#')
             rgb = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
-            darker = tuple(max(0, int(c * 0.88)) for c in rgb)
+            darker = tuple(max(0, int(c * 0.90)) for c in rgb)
             return f"#{darker[0]:02x}{darker[1]:02x}{darker[2]:02x}"
         except Exception:
             return hex_color
@@ -148,26 +221,26 @@ class ModernButton(tk.Label):
         try:
             h = hex_color.lstrip('#')
             rgb = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
-            darker = tuple(max(0, int(c * 0.75)) for c in rgb)
+            darker = tuple(max(0, int(c * 0.72)) for c in rgb)
             return f"#{darker[0]:02x}{darker[1]:02x}{darker[2]:02x}"
         except Exception:
             return hex_color
 
     def _on_enter(self, event=None):
         if self._state == tk.NORMAL:
-            self.configure(bg=self.hover_bg)
+            self.configure(bg=self.hover_bg, relief=self.normal_relief)
 
     def _on_leave(self, event=None):
         if self._state == tk.NORMAL:
-            self.configure(bg=self.normal_bg)
+            self.configure(bg=self.normal_bg, relief=self.normal_relief)
 
     def _on_press(self, event=None):
         if self._state == tk.NORMAL:
-            self.configure(bg=self.active_bg)
+            self.configure(bg=self.active_bg, relief=tk.SUNKEN)
 
     def _on_release(self, event=None):
         if self._state == tk.NORMAL:
-            self.configure(bg=self.hover_bg)
+            self.configure(bg=self.hover_bg, relief=self.normal_relief)
             if self.command:
                 self.command()
 
@@ -185,9 +258,9 @@ class ModernButton(tk.Label):
         if "state" in kwargs:
             self._state = kwargs.pop("state")
             if self._state == tk.DISABLED:
-                super().config(bg=self.disabled_bg, fg=self.disabled_fg, cursor="arrow")
+                super().config(bg=self.disabled_bg, fg=self.disabled_fg, cursor="arrow", relief=tk.GROOVE)
             else:
-                super().config(bg=self.normal_bg, fg=self.normal_fg, cursor="hand2")
+                super().config(bg=self.normal_bg, fg=self.normal_fg, cursor="hand2", relief=self.normal_relief)
         if "text" in kwargs:
             super().config(text=kwargs.pop("text"))
         if "bg" in kwargs:
@@ -236,41 +309,68 @@ class TransferSubTab(tk.Frame):
             self.file_card.config(text=f" 📁 File Payload (Transfer #{self.tab_id}) ")
 
     def build_tab_ui(self):
-        container = tk.Frame(self, bg="#f8fafc", padx=20, pady=16)
-        container.pack(fill=tk.BOTH, expand=True)
+        # 1. Responsive Scrollable Canvas Container
+        self.canvas = tk.Canvas(self, bg="#f8fafc", highlightthickness=0, bd=0)
+        self.v_scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.v_scrollbar.set)
 
-        # 1. Receiver Configuration Card
+        self.v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Inner container frame mounted on Canvas
+        self.container = tk.Frame(self.canvas, bg="#f8fafc", padx=14, pady=10)
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.container, anchor="nw")
+
+        # Dynamic resizing & scrolling bindings
+        self.container.bind("<Configure>", self._on_container_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        self._bind_mousewheel_recursive(self.canvas)
+        self._bind_mousewheel_recursive(self)
+
+        # 2. Receiver Peer Configuration Card
         srv_card = tk.LabelFrame(
-            container,
+            self.container,
             text=" 🌐 Receiver Peer Configuration ",
             font=FONT_CARD_TITLE,
-            fg="#1e293b",
+            fg="#0f172a",
             bg="#ffffff",
             bd=1,
-            relief=tk.SOLID,
-            padx=14,
-            pady=10
+            relief=tk.GROOVE,
+            padx=12,
+            pady=8
         )
-        srv_card.pack(fill=tk.X, pady=(0, 12))
+        srv_card.pack(fill=tk.X, pady=(0, 10))
 
-        tk.Label(srv_card, text="Target Receiver IP:", font=FONT_LABEL_BOLD, bg="#ffffff", fg="#334155").pack(side=tk.LEFT)
-        self.ip_entry = tk.Entry(srv_card, font=FONT_LABEL, bg="#f8fafc", relief=tk.SOLID, bd=1)
+        tk.Label(srv_card, text="Target Receiver IP:", font=FONT_LABEL_BOLD, bg="#ffffff", fg="#0f172a").pack(side=tk.LEFT)
+        self.ip_entry = tk.Entry(
+            srv_card,
+            font=FONT_LABEL,
+            bg="#ffffff",
+            fg="#0f172a",
+            insertbackground="#0f172a",
+            selectbackground="#0284c7",
+            selectforeground="#ffffff",
+            disabledbackground="#f1f5f9",
+            disabledforeground="#94a3b8",
+            relief=tk.SOLID,
+            bd=1
+        )
         self.ip_entry.insert(0, self.app.config.get("last_receiver_ip", "192.168.x.x"))
-        self.ip_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0), ipady=4)
+        self.ip_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0), ipady=3)
 
-        # 2. File Selection Card
+        # 3. File Selection Card
         self.file_card = tk.LabelFrame(
-            container,
+            self.container,
             text=f" 📁 File Payload (Transfer #{self.tab_id}) ",
             font=FONT_CARD_TITLE,
-            fg="#1e293b",
+            fg="#0f172a",
             bg="#ffffff",
             bd=1,
-            relief=tk.SOLID,
-            padx=14,
-            pady=12
+            relief=tk.GROOVE,
+            padx=12,
+            pady=8
         )
-        self.file_card.pack(fill=tk.X, pady=(0, 12))
+        self.file_card.pack(fill=tk.X, pady=(0, 10))
 
         file_top = tk.Frame(self.file_card, bg="#ffffff")
         file_top.pack(fill=tk.X)
@@ -283,42 +383,42 @@ class TransferSubTab(tk.Frame):
             bg="#2563eb",
             fg="#ffffff",
             hover_bg="#1d4ed8",
-            padx=14,
-            pady=6
+            padx=BTN_PADX,
+            pady=BTN_PADY
         )
         self.browse_btn.pack(side=tk.LEFT)
 
         self.file_label = tk.Label(
             file_top,
             text="No file selected",
-            font=("Helvetica", 11, "italic"),
-            fg="#64748b",
+            font=FONT_LABEL_BOLD,
+            fg="#0f172a",
             bg="#ffffff",
             anchor="w"
         )
-        self.file_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
+        self.file_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 0))
 
-        # 3. Transfer Monitor Card
+        # 4. Transfer Monitor Card
         self.mon_card = tk.LabelFrame(
-            container,
+            self.container,
             text=" 📊 Transfer Monitor ",
             font=FONT_CARD_TITLE,
-            fg="#1e293b",
+            fg="#0f172a",
             bg="#ffffff",
             bd=1,
-            relief=tk.SOLID,
-            padx=14,
-            pady=12
+            relief=tk.GROOVE,
+            padx=12,
+            pady=8
         )
-        self.mon_card.pack(fill=tk.X, pady=(0, 12))
+        self.mon_card.pack(fill=tk.X, pady=(0, 10))
 
         stats_top = tk.Frame(self.mon_card, bg="#ffffff")
-        stats_top.pack(fill=tk.X, pady=(0, 4))
+        stats_top.pack(fill=tk.X, pady=(0, 2))
 
         self.pct_label = tk.Label(stats_top, text="0%", font=FONT_STAT, fg="#0f172a", bg="#ffffff")
         self.pct_label.pack(side=tk.LEFT)
 
-        self.bytes_label = tk.Label(stats_top, text="0 B / 0 B", font=FONT_LABEL, fg="#475569", bg="#ffffff")
+        self.bytes_label = tk.Label(stats_top, text="0 B / 0 B", font=FONT_LABEL_BOLD, fg="#0f172a", bg="#ffffff")
         self.bytes_label.pack(side=tk.RIGHT)
 
         # Progress Bar
@@ -328,37 +428,36 @@ class TransferSubTab(tk.Frame):
             mode="determinate",
             style="Custom.Horizontal.TProgressbar"
         )
-        self.progress_bar.pack(fill=tk.X, pady=6)
+        self.progress_bar.pack(fill=tk.X, pady=5)
 
         stats_bottom = tk.Frame(self.mon_card, bg="#ffffff")
-        stats_bottom.pack(fill=tk.X, pady=(4, 0))
+        stats_bottom.pack(fill=tk.X, pady=(2, 0))
 
-        self.speed_label = tk.Label(stats_bottom, text="⚡ Speed: 0.00 MB/s", font=FONT_LABEL_BOLD, fg="#0369a1", bg="#ffffff")
+        self.speed_label = tk.Label(stats_bottom, text="⚡ Speed: 0.00 MB/s", font=FONT_LABEL_BOLD, fg="#0284c7", bg="#ffffff")
         self.speed_label.pack(side=tk.LEFT)
 
-        self.eta_label = tk.Label(stats_bottom, text="⏱️ ETA: --", font=FONT_LABEL, fg="#475569", bg="#ffffff")
+        self.eta_label = tk.Label(stats_bottom, text="⏱️ ETA: --", font=FONT_LABEL_BOLD, fg="#0f172a", bg="#ffffff")
         self.eta_label.pack(side=tk.RIGHT)
 
-        # 4. Status Banner
-        self.status_box = tk.Frame(container, bg="#e0f2fe", bd=1, relief=tk.SOLID, padx=12, pady=8)
-        self.status_box.pack(fill=tk.X, pady=(0, 12))
+        # 5. Status Banner
+        self.status_box = tk.Frame(self.container, bg="#e0f2fe", bd=1, relief=tk.SOLID, padx=10, pady=6)
+        self.status_box.pack(fill=tk.X, pady=(0, 10))
 
         self.status_label = tk.Label(
             self.status_box,
             text="Ready: Enter the Receiver's IP and choose a file to begin.",
-            font=FONT_LABEL,
+            font=FONT_LABEL_BOLD,
             fg="#0369a1",
             bg="#e0f2fe",
-            wraplength=720,
-            justify=tk.LEFT
+            justify=tk.LEFT,
+            anchor="w"
         )
         self.status_label.pack(anchor="w", fill=tk.X, expand=True)
-        self.status_box.bind("<Configure>", lambda e: self.status_label.config(wraplength=max(200, e.width - 24)))
+        self.status_box.bind("<Configure>", lambda e: self.status_label.config(wraplength=max(200, e.width - 20)))
 
-
-        # 5. Interactive Control Action Buttons Row
-        ctrl_frame = tk.Frame(container, bg="#f8fafc")
-        ctrl_frame.pack(fill=tk.X, pady=(0, 4))
+        # 6. Interactive Control Action Buttons Row
+        ctrl_frame = tk.Frame(self.container, bg="#f8fafc")
+        ctrl_frame.pack(fill=tk.X, pady=(0, 10))
 
         # Send Button
         self.send_btn = ModernButton(
@@ -369,9 +468,10 @@ class TransferSubTab(tk.Frame):
             bg="#059669",
             fg="#ffffff",
             hover_bg="#047857",
-            pady=9
+            padx=BTN_PADX + 4,
+            pady=BTN_PADY + 2
         )
-        self.send_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
+        self.send_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
 
         # Pause / Resume Button
         self.pause_btn = ModernButton(
@@ -382,11 +482,11 @@ class TransferSubTab(tk.Frame):
             bg="#0284c7",
             fg="#ffffff",
             hover_bg="#0369a1",
-            pady=9,
-            width=10,
+            padx=BTN_PADX,
+            pady=BTN_PADY + 2,
             state=tk.DISABLED
         )
-        self.pause_btn.pack(side=tk.LEFT, padx=4)
+        self.pause_btn.pack(side=tk.LEFT, padx=3)
 
         # Cancel Button
         self.cancel_btn = ModernButton(
@@ -397,11 +497,11 @@ class TransferSubTab(tk.Frame):
             bg="#dc2626",
             fg="#ffffff",
             hover_bg="#b91c1c",
-            pady=9,
-            width=10,
+            padx=BTN_PADX,
+            pady=BTN_PADY + 2,
             state=tk.DISABLED
         )
-        self.cancel_btn.pack(side=tk.LEFT, padx=4)
+        self.cancel_btn.pack(side=tk.LEFT, padx=3)
 
         # Close Tab Button
         self.close_btn = ModernButton(
@@ -412,10 +512,89 @@ class TransferSubTab(tk.Frame):
             bg="#64748b",
             fg="#ffffff",
             hover_bg="#475569",
-            pady=9,
-            width=11
+            padx=BTN_PADX,
+            pady=BTN_PADY + 2
         )
-        self.close_btn.pack(side=tk.LEFT, padx=(4, 0))
+        self.close_btn.pack(side=tk.LEFT, padx=(3, 0))
+
+        # 7. Live Transfer Activity & Security Log (Expands to fill extra vertical height)
+        self.log_card = tk.LabelFrame(
+            self.container,
+            text=" 🛡️ Live Transfer Activity & Security Log ",
+            font=FONT_CARD_TITLE,
+            fg="#0f172a",
+            bg="#ffffff",
+            bd=1,
+            relief=tk.GROOVE,
+            padx=10,
+            pady=6
+        )
+        self.log_card.pack(fill=tk.BOTH, expand=True, pady=(0, 2))
+
+        self.log_text = tk.Text(
+            self.log_card,
+            height=5,
+            font=FONT_MONO,
+            bg="#0f172a",
+            fg="#38bdf8",
+            insertbackground="#38bdf8",
+            relief=tk.FLAT,
+            padx=8,
+            pady=6,
+            wrap=tk.WORD
+        )
+        log_scroll = ttk.Scrollbar(self.log_card, orient="vertical", command=self.log_text.yview)
+        self.log_text.configure(yscrollcommand=log_scroll.set)
+        log_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.log_text.insert(tk.END, f"[{time.strftime('%H:%M:%S')}] P2P Client initialized. Hybrid Cryptography Engine ready.\n")
+        self.log_text.config(state=tk.DISABLED)
+
+        # Recursively bind mousewheel to all nested widgets so scrolling works anywhere
+        self._bind_mousewheel_recursive(self.container)
+        self.bind("<Enter>", lambda e: self.canvas.bind_all("<MouseWheel>", self._on_mousewheel))
+        self.bind("<Leave>", lambda e: self.canvas.unbind_all("<MouseWheel>"))
+
+    def _on_container_configure(self, event=None):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        min_h = self.container.winfo_reqheight()
+        new_h = max(event.height, min_h)
+        self.canvas.itemconfig(self.canvas_window, width=event.width, height=new_h)
+
+    def _bind_mousewheel_recursive(self, widget):
+        widget.bind("<MouseWheel>", self._on_mousewheel, add="+")
+        widget.bind("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"), add="+")
+        widget.bind("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"), add="+")
+        for child in widget.winfo_children():
+            if not isinstance(child, (tk.Text, ttk.Treeview)):
+                self._bind_mousewheel_recursive(child)
+
+    def _on_mousewheel(self, event):
+        try:
+            if sys.platform == "darwin":
+                self.canvas.yview_scroll(int(-1 * event.delta), "units")
+            else:
+                units = int(-1 * (event.delta / 120))
+                if units == 0:
+                    units = -1 if event.delta > 0 else 1
+                self.canvas.yview_scroll(units, "units")
+        except Exception:
+            pass
+
+    def append_log(self, message):
+        def _apply():
+            if hasattr(self, 'log_text'):
+                try:
+                    self.log_text.config(state=tk.NORMAL)
+                    ts = time.strftime("%H:%M:%S")
+                    self.log_text.insert(tk.END, f"[{ts}] {message}\n")
+                    self.log_text.see(tk.END)
+                    self.log_text.config(state=tk.DISABLED)
+                except Exception:
+                    pass
+        self.after(0, _apply)
 
     def browse_file(self):
         if self.is_transferring: return
@@ -425,6 +604,7 @@ class TransferSubTab(tk.Frame):
             name = os.path.basename(self.filepath)
             self.file_label.config(text=f"{name} ({format_size(size_bytes)})", fg="#0f172a", font=FONT_LABEL_BOLD)
             self.reset_progress(size_bytes)
+            self.append_log(f"Selected payload: '{name}' ({format_size(size_bytes)})")
 
     def reset_progress(self, size_bytes=0):
         self.progress_bar['value'] = 0
@@ -457,6 +637,7 @@ class TransferSubTab(tk.Frame):
                 self.status_box.config(bg="#e0f2fe")
                 self.status_label.config(text=f"🔄 {text}", fg="#0369a1", bg="#e0f2fe")
         self.after(0, _apply)
+        self.append_log(text)
 
     def update_progress(self, sent, total):
         now = time.time()
@@ -477,7 +658,7 @@ class TransferSubTab(tk.Frame):
             self.pct_label.config(text=f"{pct}%")
             self.bytes_label.config(text=f"{format_size(sent)} / {format_size(total)}")
             self.speed_label.config(text=f"⚡ Speed: {format_speed(speed_mbps)}")
-            self.eta_label.config(text=f"⏱️ ETA: {eta_seconds:.1f}s" if eta_seconds > 0 else "⏱️ ETA: Done")
+            self.eta_label.config(text=f"⏱️ ETA: {format_eta(eta_seconds)}")
 
         self.after(0, _apply)
 
@@ -583,8 +764,8 @@ class SecureClientGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Secure P2P Client (Hybrid AES-ECC + Audit Log)")
-        self.root.geometry("1000x720")
-        self.root.minsize(840, 600)
+        self.root.geometry(WIN_GEOMETRY)
+        self.root.minsize(WIN_MINSIZE[0], WIN_MINSIZE[1])
         self.root.configure(bg="#f1f5f9")
 
         # Load configuration
@@ -627,7 +808,7 @@ class SecureClientGUI:
             font=FONT_LABEL_BOLD,
             padding=(16, 8),
             background="#e2e8f0",
-            foreground="#334155"
+            foreground="#0f172a"
         )
         self.style.map(
             "TNotebook.Tab",
@@ -638,7 +819,7 @@ class SecureClientGUI:
         self.style.configure(
             "Treeview",
             font=FONT_LABEL,
-            rowheight=28,
+            rowheight=TREE_ROW_HEIGHT,
             background="#ffffff",
             fieldbackground="#ffffff",
             foreground="#0f172a"
@@ -646,7 +827,7 @@ class SecureClientGUI:
         self.style.configure(
             "Treeview.Heading",
             font=FONT_LABEL_BOLD,
-            foreground="#1e293b",
+            foreground="#0f172a",
             background="#e2e8f0",
             padding=(6, 6)
         )
@@ -685,7 +866,7 @@ class SecureClientGUI:
             title_frame,
             text="Blackbox P2P Transfer (ECDH P-256 + AES-256-GCM + Atomicity)",
             font=FONT_SUBTITLE,
-            fg="#94a3b8",
+            fg="#cbd5e1",
             bg="#0f172a"
         )
         sub_lbl.pack(anchor="w")
@@ -722,7 +903,19 @@ class SecureClientGUI:
 
         # Editable Display Name
         tk.Label(info_row, text="My Display Name:", font=FONT_LABEL, fg="#cbd5e1", bg="#0f172a").pack(side=tk.LEFT)
-        self.name_entry = tk.Entry(info_row, textvariable=self.display_name_var, font=FONT_LABEL_BOLD, width=18, bg="#1e293b", fg="#ffffff", insertbackground="white", relief=tk.SOLID, bd=1)
+        self.name_entry = tk.Entry(
+            info_row,
+            textvariable=self.display_name_var,
+            font=FONT_LABEL_BOLD,
+            width=18,
+            bg="#1e293b",
+            fg="#ffffff",
+            insertbackground="#ffffff",
+            selectbackground="#0284c7",
+            selectforeground="#ffffff",
+            relief=tk.SOLID,
+            bd=1
+        )
         self.name_entry.pack(side=tk.LEFT, padx=(8, 18), ipady=2)
         self.name_entry.bind("<FocusOut>", self.save_name_change)
         self.name_entry.bind("<Return>", self.save_name_change)
@@ -772,7 +965,7 @@ class SecureClientGUI:
             top_bar,
             text="Active File Transfers:",
             font=FONT_HEADER,
-            fg="#1e293b",
+            fg="#0f172a",
             bg="#f1f5f9"
         ).pack(side=tk.LEFT)
 
@@ -830,7 +1023,7 @@ class SecureClientGUI:
             h_top,
             text="Audit Trail & Transfer Log:",
             font=FONT_HEADER,
-            fg="#1e293b",
+            fg="#0f172a",
             bg="#f1f5f9"
         ).pack(side=tk.LEFT)
 
@@ -855,9 +1048,9 @@ class SecureClientGUI:
             text="🔄 Refresh",
             command=self.refresh_history,
             font=FONT_BTN_SM,
-            bg="#475569",
+            bg="#334155",
             fg="#ffffff",
-            hover_bg="#334155",
+            hover_bg="#1e293b",
             padx=10,
             pady=5
         )
@@ -900,7 +1093,7 @@ class SecureClientGUI:
         self.tree.column("file", width=200, minwidth=140, anchor="w", stretch=True)
         self.tree.column("size", width=100, minwidth=80, anchor="e", stretch=False)
         self.tree.column("timestamp", width=155, minwidth=130, anchor="center", stretch=False)
-        self.tree.column("duration", width=90, minwidth=75, anchor="center", stretch=False)
+        self.tree.column("duration", width=110, minwidth=85, anchor="center", stretch=False)
         self.tree.column("speed", width=120, minwidth=95, anchor="e", stretch=False)
         self.tree.column("status", width=110, minwidth=90, anchor="center", stretch=False)
 
@@ -930,7 +1123,7 @@ class SecureClientGUI:
             peer_str = f"{r['peer_name']} ({r['peer_ip']})"
             size_str = format_size(r['filesize'])
             speed_str = format_speed(r['speed_mbps']) if r['speed_mbps'] > 0 else "--"
-            dur_str = f"{r['duration_sec']:.2f}s" if r['duration_sec'] > 0 else "--"
+            dur_str = format_duration(r['duration_sec']) if r['duration_sec'] > 0 else "--"
 
             self.tree.insert("", "end", values=(
                 r["id"],

@@ -6,7 +6,7 @@ SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-from client_gui import format_size, format_speed, SecureClientGUI
+from client_gui import format_size, format_speed, format_duration, format_eta, SecureClientGUI
 
 def test_dynamic_units():
     print("Testing dynamic units...")
@@ -21,6 +21,20 @@ def test_dynamic_units():
     assert format_speed(12.345) == "12.35 MB/s"
     assert format_speed(125.0) == "125.00 MB/s"
     print("  -> format_speed PASSED")
+
+    assert format_duration(0) == "0s"
+    assert format_duration(0.45) == "0.45s"
+    assert format_duration(18) == "18sec"
+    assert format_duration(184) == "3min 4sec"
+    assert format_duration(60) == "1min"
+    assert format_duration(3600) == "1hr"
+    assert format_duration(4325) == "1hr 12min 5sec"
+    print("  -> format_duration PASSED")
+
+    assert format_eta(0) == "Done"
+    assert format_eta(184) == "3min 4sec"
+    assert format_eta(12) == "12sec"
+    print("  -> format_eta PASSED")
 
 def test_relative_tab_count():
     print("Testing relative tab counting logic...")
