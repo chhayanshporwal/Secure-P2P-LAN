@@ -102,7 +102,7 @@ jobs:
           elif [ "${{ github.ref_type }}" = "tag" ]; then
             echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
-            echo "tag=v1.0.0" >> $GITHUB_OUTPUT
+            echo "tag=v1.0.1" >> $GITHUB_OUTPUT
           fi
 
       - name: Create or Update GitHub Release
@@ -128,7 +128,8 @@ jobs:
             - **Blackbox Engine**: Auto-starts background Load Balancer (:5000) and multi-node workers on launch.
             - **Hybrid Cryptography**: ECDH P-256 Key Exchange + AES-256-GCM authenticated encryption.
             - **Atomicity**: Transfers are all-or-nothing; staged `.part` files are automatically deleted upon interruption or cancellation.
-            - **Native GB Units**: Real-time throughput (`GB/s`) and payload size (`GB`).
+            - **Dynamic Sizing & MBPS Speed**: Real-time dynamic payload sizes (B, KB, MB, GB) and dedicated throughput in MBPS (MB/s).
+            - **Relative Tab Numbering & Desktop Responsiveness**: Sequential tab tracking (1..N) and responsive layout across desktop displays.
             - **Receive Notifications**: Instant on-screen alerts with 1-click navigation to Full History.
             - **Transfer History**: Embedded SQLite audit log of all incoming and outgoing transfers.
           files: |
